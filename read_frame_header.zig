@@ -72,7 +72,7 @@ fn readFrameFlags(data: u8) !FrameFlags {
     flags.ContentSize = @intCast(u1, (data & 0x08) >> 3);
     flags.ContentChecksum = @intCast(u1, (data & 0x04) >> 2);
     flags._reserved = @intCast(u1, (data & 0x02) >> 1);
-    if (flags._reserved != 0) 
+    if (flags._reserved != 0)
         return error.UnableToDecode;
     flags.DictionaryId = @intCast(u1, (data & 0x01) >> 0);
     return flags;
@@ -88,7 +88,7 @@ fn readBlockData(data: u8) !BlockData {
     if (block.BlockMaximumSize != BlockMaximumSize._256KB and
         block.BlockMaximumSize != BlockMaximumSize._64KB and
         block.BlockMaximumSize != BlockMaximumSize._1MB and
-        block.BlockMaximumSize != BlockMaximumSize._4MB) 
+        block.BlockMaximumSize != BlockMaximumSize._4MB)
         return error.InvalidBlockSize;
     return block;
 }
@@ -102,7 +102,7 @@ fn readFrameDescriptor(data: []const u8, frame_descriptor: *FrameDescriptor) !us
     frame_descriptor.block_data = try readBlockData(data[1]);
     var read = usize(2);
     if (frame_descriptor.flags.ContentSize == 1) {
-        if (data.len < read + 9) 
+        if (data.len < read + 9)
             return error.NotEnoughData;
         frame_descriptor.content_size = mem.readIntSliceLittle(u64, data[read..read + 8]);
         read += 8;
@@ -141,6 +141,12 @@ pub fn readFrameHeader(data: []const u8, frame_header: *FrameHeader) !usize {
     return read + 4;
 }
 
+pub fn readContentChecksum(data: []const u8) !u32 {
+    if (data.len < 4)
+        return error.NotEnoughData;
+    return mem.readIntSliceLittle(u32, data[0..4]);
+}
+
 test "magic" {
     const dataShort = [3]u8{1,2,3};
     testing.expectError(error.NotEnoughData, handleMagic(dataShort));
@@ -162,7 +168,7 @@ test "frame descriptor errors" {
     testing.expectError(error.NotEnoughData, readFrameDescriptor(dataShort, &frame_descriptor));
 }
 
-test "frame version" {    
+test "frame version" {
     {
         var frame_descriptor: FrameDescriptor = undefined;
         const dataInvalidVersion = [3]u8{0x00, 0x00, 0x00};
@@ -179,12 +185,12 @@ test "frame version" {
 
 test "frame flags" {
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x42, 0x40, 0x00};
         testing.expectError(error.UnableToDecode, readFrameDescriptor(data, &frame_descriptor));
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x40, 0x40, 0x00};
         _ = try readFrameDescriptor(data, &frame_descriptor);
         testing.expectEqual(u1(0), frame_descriptor.flags.BlockIndependence);
@@ -195,7 +201,7 @@ test "frame flags" {
         testing.expectEqual(u1(0), frame_descriptor.flags.DictionaryId);
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x60, 0x40, 0x00};
         _ = try readFrameDescriptor(data, &frame_descriptor);
         testing.expectEqual(u1(1), frame_descriptor.flags.BlockIndependence);
@@ -206,7 +212,7 @@ test "frame flags" {
         testing.expectEqual(u1(0), frame_descriptor.flags.DictionaryId);
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x50, 0x40, 0x00};
         _ = try readFrameDescriptor(data, &frame_descriptor);
         testing.expectEqual(u1(0), frame_descriptor.flags.BlockIndependence);
@@ -217,7 +223,7 @@ test "frame flags" {
         testing.expectEqual(u1(0), frame_descriptor.flags.DictionaryId);
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [11]u8{0x48, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
         _ = try readFrameDescriptor(data, &frame_descriptor);
         testing.expectEqual(u1(0), frame_descriptor.flags.BlockIndependence);
@@ -228,7 +234,7 @@ test "frame flags" {
         testing.expectEqual(u1(0), frame_descriptor.flags.DictionaryId);
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x44, 0x40, 0x00};
         _ = try readFrameDescriptor(data, &frame_descriptor);
         testing.expectEqual(u1(0), frame_descriptor.flags.BlockIndependence);
@@ -238,7 +244,7 @@ test "frame flags" {
         testing.expectEqual(u1(0), frame_descriptor.flags.DictionaryId);
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [7]u8{0x41, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00};
         _ = try readFrameDescriptor(data, &frame_descriptor);
         testing.expectEqual(u1(0), frame_descriptor.flags.BlockIndependence);
@@ -252,24 +258,24 @@ test "frame flags" {
 
 test "block data" {
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x40, 0x00, 0x00};
         testing.expectError(error.InvalidBlockSize, readFrameDescriptor(data, &frame_descriptor));
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x40, 0x80, 0x00};
         testing.expectError(error.UnableToDecode, readFrameDescriptor(data, &frame_descriptor));
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         for ([]u2{0,1,2,3}) |i| {
             const data = [3]u8{0x40, u8(1) << i, 0x00};
-            testing.expectError(error.UnableToDecode, readFrameDescriptor(data, &frame_descriptor));    
+            testing.expectError(error.UnableToDecode, readFrameDescriptor(data, &frame_descriptor));
         }
     }
     inline for (@typeInfo(BlockMaximumSize).Enum.fields) |field| {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x40, u8(field.value) << 4, 0x00};
         _ = try readFrameDescriptor(data, &frame_descriptor);
         testing.expectEqual(@intToEnum(BlockMaximumSize, field.value), frame_descriptor.block_data.BlockMaximumSize);
@@ -277,28 +283,28 @@ test "block data" {
 }
 
 test "Content Size" {
-    var frame_descriptor: FrameDescriptor = undefined;    
+    var frame_descriptor: FrameDescriptor = undefined;
     const data = [11]u8{0x48, 0x40, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12, 0x00};
     _ = try readFrameDescriptor(data, &frame_descriptor);
     testing.expectEqual(u64(0x123456789ABCDEFE), frame_descriptor.content_size.?);
-}   
+}
 
 test "Dictionary Id" {
-    var frame_descriptor: FrameDescriptor = undefined;    
+    var frame_descriptor: FrameDescriptor = undefined;
     const data = [7]u8{0x41, 0x40, 0xFE, 0xDE, 0xBC, 0x9A, 0x00};
     _ = try readFrameDescriptor(data, &frame_descriptor);
     testing.expectEqual(u32(0x9ABCDEFE), frame_descriptor.dictionary_id.?);
 }
 
 test "Header Checksum" {
-    var frame_descriptor: FrameDescriptor = undefined;    
+    var frame_descriptor: FrameDescriptor = undefined;
     const data = [3]u8{0x40, 0x40, 0xFE};
     _ = try readFrameDescriptor(data, &frame_descriptor);
     testing.expectEqual(u8(0xFE), frame_descriptor.header_checksum);
 }
 
 test "Content Size, Dictionary Id and Header Checksum" {
-    var frame_descriptor: FrameDescriptor = undefined;    
+    var frame_descriptor: FrameDescriptor = undefined;
     const data = [15]u8{0x49, 0x40, 0xFE, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12, 0x21, 0x43, 0x65, 0x87, 0xF1};
     _ = try readFrameDescriptor(data, &frame_descriptor);
     testing.expectEqual(u64(0x123456789ABCDEFE), frame_descriptor.content_size.?);
@@ -308,27 +314,27 @@ test "Content Size, Dictionary Id and Header Checksum" {
 
 test "Bytes read" {
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x40, 0x40, 0xFE};
         testing.expectEqual(usize(3), try readFrameDescriptor(data, &frame_descriptor));
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{0x40, 0x40, 0xFE} ++ []u8{0x00} ** 100;
         testing.expectEqual(usize(3), try readFrameDescriptor(data, &frame_descriptor));
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [2]u8{0x48, 0x40} ++ []u8{0x00} ** 100;
         testing.expectEqual(usize(11), try readFrameDescriptor(data, &frame_descriptor));
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [2]u8{0x41, 0x40} ++ []u8{0x00} ** 100;
         testing.expectEqual(usize(7), try readFrameDescriptor(data, &frame_descriptor));
     }
     {
-        var frame_descriptor: FrameDescriptor = undefined;    
+        var frame_descriptor: FrameDescriptor = undefined;
         const data = [2]u8{0x49, 0x40} ++ []u8{0x00} ** 100;
         testing.expectEqual(usize(15), try readFrameDescriptor(data, &frame_descriptor));
     }

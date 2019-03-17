@@ -17,29 +17,53 @@ pub const Decompressor = struct {
     }
 
     pub fn decompress(self: *Self, compressed: []const u8, read_out: *usize, decompressed: []u8, written_out: *usize) !void {
-        var read = try frame.readFrameHeader(compressed, &self.frame_header);
+        var read: usize = 0;
         var written: usize = 0;
+        while (read < compressed.len and written < decompressed.len) {
+            read = try frame.readFrameHeader(compressed, &self.frame_header);
+            defer {
+                read_out.* = read;
+                written_out.* = written;
+            }
+            switch(self.frame_header) {
+                frame.FrameHeader.General => {
+                    var frame_read: usize = 0;
+                    var frame_written: usize = 0;
+                    defer {
+                        read += frame_read;
+                        written += frame_written;
+                    }
+                    try self.decompressGeneralFrame(compressed[read..], &frame_read, decompressed[written..], &frame_written);
+                },
+                frame.FrameHeader.Skippable => |value| {
+                    read += value.size;
+                },
+            }
+        }
+    }
+
+    fn decompressGeneralFrame(self: Self, compressed: []const u8, read_out: *usize, decompressed: []u8, written_out: *usize) !void {
+        const frame_descriptor = &self.frame_header.General;
+        var read = usize(0);
+        var written = usize(0);
         defer {
             read_out.* = read;
             written_out.* = written;
         }
-        switch(self.frame_header) {
-            frame.FrameHeader.General => |value| {
-                var size: u32 = 0xffff;
-                while (size != 0) {
-                    read += try block.readBlockSize(compressed[read..], &size);
-                    var decode_read: usize = undefined;
-                    var decode_written: usize = undefined;
-                    defer {
-                        read += decode_read;
-                        written += decode_written;
-                    }
-                    try block.decodeBlock(compressed[read..read+size], &decode_read, decompressed[written..], &decode_written);
-                }
-            },
-            frame.FrameHeader.Skippable => |value| {
-                read += value.size;
-            },
+        var size: u32 = 0xffffffff;
+        while (size != 0) {
+            read += try block.readBlockSize(compressed[read..], &size);
+            var decode_read: usize = undefined;
+            var decode_written: usize = undefined;
+            defer {
+                read += decode_read;
+                written += decode_written;
+            }
+            try block.decodeBlock(compressed[read..read+size], &decode_read, decompressed[written..], &decode_written);
+        }
+        if (frame_descriptor.flags.ContentChecksum == 1) {
+            _ = try frame.readContentChecksum(compressed[read..]);
+            read += 4;
         }
     }
 };
@@ -57,4 +81,17 @@ test "decompress simple" {
     testing.expectEqual(compressed.len, read);
     testing.expectEqual(expected_data.len, written);
     testing.expectEqualSlices(u8, expected_data, data[0..expected_data.len]);
+}
+
+test "decompress small lorem ipsum" {
+    const compressed = @embedFile("lorem.txt.lz4");
+    const expected = @embedFile("lorem.txt");
+    var data = []u8{0} ** 1024;
+    var decompressor: Decompressor = undefined;
+    var read: usize = undefined;
+    var written: usize = undefined;
+    try decompressor.decompress(compressed, &read, data[0..], &written);
+    testing.expectEqual(compressed.len, read);
+    testing.expectEqual(expected.len, written);
+    testing.expectEqualSlices(u8, expected, data[0..expected.len]);
 }

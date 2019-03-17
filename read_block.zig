@@ -30,7 +30,7 @@ test "read block checksum" {
     var size: u32 = undefined;
     const read = try readBlockChecksum(data, &size);
     testing.expectEqual(usize(4), read);
-    testing.expectEqual(u32(0x9ABCDEFE), size);    
+    testing.expectEqual(u32(0x9ABCDEFE), size);
 }
 
 
@@ -73,20 +73,20 @@ test "determine literal length" {
         const read = try determineLiteralLengh(readToken(data[0]), data[1..], &length);
         testing.expectEqual(usize(2), read);
         testing.expectEqual(usize(280), length);
-    }   
+    }
     {
         const data = [4]u8{0xF0, 0, 232, 21};
         var length: usize = undefined;
         const read = try determineLiteralLengh(readToken(data[0]), data[1..], &length);
         testing.expectEqual(usize(1), read);
         testing.expectEqual(usize(15), length);
-    }    
+    }
     {
         const data = [4]u8{0xF0, 0xFF, 0xFF, 0xFF};
         var length: usize = undefined;
         testing.expectError(error.IncompleteData, determineLiteralLengh(readToken(data[0]), data[1..], &length));
         testing.expectEqual(usize(15+255+255+255), length);
-    }    
+    }
 }
 
 const MatchOperation = struct {
@@ -96,8 +96,9 @@ const MatchOperation = struct {
 
 // returns how many bytes have been read
 pub fn readMatchOperation(token: Token, data: []const u8, operation: *MatchOperation) !usize {
-    if (data.len < 2)
+    if (data.len < 2) {
         return error.NoEnoughData;
+    }
     operation.offset = mem.readIntSliceLittle(u16, data);
     var read = usize(2);
     defer {
@@ -191,7 +192,7 @@ test "apply match operation" {
         testing.expectEqual(usize(14), offset);
         const expected_data = []u8{1,2,3,4} ++ []u8{4} ** 10;
         testing.expectEqualSlices(u8, expected_data, data[0..14]);
-    }    
+    }
 }
 
 pub fn decodeBlock(compressed: []const u8, read_out: *usize, uncompressed: []u8, written_out: *usize) !void {
@@ -215,9 +216,11 @@ pub fn decodeBlock(compressed: []const u8, read_out: *usize, uncompressed: []u8,
         mem.copy(u8, uncompressed[written..], compressed[read..read+literal_length]);
         written += literal_length;
         read += literal_length;
-        var operation: MatchOperation = undefined;
-        read += try readMatchOperation(token, compressed[read..], &operation);
-        written = applyMatchOperation(operation, uncompressed, written);
+        if (read < compressed.len) {
+            var operation: MatchOperation = undefined;
+            read += try readMatchOperation(token, compressed[read..], &operation);
+            written = applyMatchOperation(operation, uncompressed, written);
+        }
     }
 }
 
@@ -258,7 +261,7 @@ test "decode block" {
     {
         const compressed = []u8{0x8F, 1, 2, 3, 4, 5, 6, 7, 8, 0x02, 0x00, 0x04} ++ []u8{0x42, 4, 3, 2, 1, 0x04, 0x00} ++ []u8{0x0F, 38, 0x00, 11};
         var data = []u8{0} ** 512;
-        const expected_data = []u8{1,2,3,4,5,6,7,8} ++ []u8{7,8} ** 11 ++ []u8{7} ++ []u8{4, 3, 2, 1} ** 2 ++ []u8{4, 3} ++ 
+        const expected_data = []u8{1,2,3,4,5,6,7,8} ++ []u8{7,8} ** 11 ++ []u8{7} ++ []u8{4, 3, 2, 1} ** 2 ++ []u8{4, 3} ++
                                     []u8{4,5,6,7,8} ++ []u8{7,8} ** 11 ++ []u8{7} ++ []u8{4, 3};
         var read: usize = undefined;
         var written: usize = undefined;
