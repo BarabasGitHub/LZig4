@@ -162,7 +162,7 @@ test "read match operation" {
 // returns the end offset/last unwritten position
 pub fn applyMatchOperation(operation: MatchOperation, uncompressed: []u8, start_offset: usize) usize {
     std.debug.assert(operation.offset > 0);
-    std.debug.assert(start_offset > operation.offset);
+    std.debug.assert(start_offset >= operation.offset);
     const end_offset = start_offset + operation.match_length;
     mem.copy(u8, uncompressed[start_offset..end_offset], uncompressed[start_offset - operation.offset..end_offset - operation.offset]);
     return end_offset;
