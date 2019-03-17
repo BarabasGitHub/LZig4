@@ -28,8 +28,6 @@ pub const Decompressor = struct {
                 var size: u32 = 0xffff;
                 while (size != 0) {
                     read += try block.readBlockSize(compressed[read..], &size);
-                    if (size == 0)
-                        return;
                     var decode_read: usize = undefined;
                     var decode_written: usize = undefined;
                     defer {
