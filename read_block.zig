@@ -3,10 +3,17 @@ const testing = std.testing;
 const mem = std.mem;
 
 // for the frame format
-pub fn readBlockSize(data: []const u8, size: *u32) !usize {
+pub const BlockHeader = struct {
+    size: u31,
+    compressed: u1,
+};
+
+pub fn readBlockHeader(data: []const u8, header: *BlockHeader) !usize {
     if (data.len < 4)
         return error.NoEnoughData;
-    size.* = mem.readIntSliceLittle(u32, data);
+    const size = mem.readIntSliceLittle(u32, data);
+    header.size = @intCast(u31, size & 0x7FFFFFFF);
+    header.compressed = ~@intCast(u1, size >> 31);
     return 4;
 }
 
@@ -17,12 +24,13 @@ pub fn readBlockChecksum(data: []const u8, checksum: *u32) !usize {
     return 4;
 }
 
-test "read block size" {
+test "read block header" {
     const data = [4]u8{0xFE, 0xDE, 0xBC, 0x9A};
-    var size: u32 = undefined;
-    const read = try readBlockSize(data, &size);
+    var header: BlockHeader = undefined;
+    const read = try readBlockHeader(data, &header);
     testing.expectEqual(usize(4), read);
-    testing.expectEqual(u32(0x9ABCDEFE), size);
+    testing.expectEqual(u31(0x1ABCDEFE), header.size);
+    testing.expectEqual(u1(0), header.compressed);
 }
 
 test "read block checksum" {
