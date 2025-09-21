@@ -1,8 +1,9 @@
 .{
-    .name = "LZig4",
+    .name = .LZig4,
     .version = "0.0.8",
-
-    .paths = [][]const u8{
+    .minimum_zig_version = "0.15.1",
+    .fingerprint = 0xb39f54e9f0c3ac88,
+    .paths = .{
         "README.md",
         "build.zig",
         "build.zig.zon",
