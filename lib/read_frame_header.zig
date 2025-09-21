@@ -275,7 +275,7 @@ test "block data" {
             try testing.expectError(error.UnableToDecode, readFrameDescriptor(&data, &frame_descriptor));
         }
     }
-    inline for (@typeInfo(BlockMaximumSize).Enum.fields) |field| {
+    inline for (@typeInfo(BlockMaximumSize).@"enum".fields) |field| {
         var frame_descriptor: FrameDescriptor = undefined;
         const data = [3]u8{ 0x40, @as(u8, field.value) << 4, 0x00 };
         _ = try readFrameDescriptor(&data, &frame_descriptor);

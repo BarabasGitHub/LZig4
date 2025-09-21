@@ -6,6 +6,7 @@ const decompress = @import("lzig4").decompress;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
     // First we specify what parameters our program can take.
@@ -17,21 +18,22 @@ pub fn main() !void {
         \\<str>...
     );
 
-    //
-    var res = try clap.parse(clap.Help, &params, clap.parsers.default, .{
+    var diag = clap.Diagnostic{};
+    var res = clap.parse(clap.Help, &params, clap.parsers.default, .{
+        .diagnostic = &diag,
         .allocator = allocator,
-    });
+    }) catch |err| {
+        try diag.reportToFile(.stderr(), err);
+        return err;
+    };
     defer res.deinit();
 
-    var input: ?[]const u8 = null;
-    var output: ?[]const u8 = null;
-
-    if (res.args.help > 0) {
-        std.debug.print("Help!\n", .{});
+    if (res.args.help != 0) {
+        return clap.helpToFile(.stderr(), clap.Help, &params, .{});
     }
 
-    if (res.args.input) |in| input = in;
-    if (res.args.output) |out| output = out;
+    const input = res.args.input;
+    const output = res.args.output;
 
     const cwd = std.fs.cwd();
     var input_file = try cwd.openFile(input.?, .{});
@@ -39,7 +41,10 @@ pub fn main() !void {
     defer input_file.close();
     defer output_file.close();
 
-    const compressed = try input_file.reader().readAllAlloc(allocator, 1024 * 1024 * 8);
+    var input_buffer: [1024]u8 = undefined;
+    var input_file_reader = input_file.reader(&input_buffer);
+    const reader = &input_file_reader.interface;
+    const compressed = try reader.readAlloc(allocator, 1024 * 1024 * 8);
     defer allocator.free(compressed);
 
     const data: []u8 = try allocator.alloc(u8, 1024 * 1024 * 16);
@@ -49,7 +54,10 @@ pub fn main() !void {
     var written: usize = undefined;
     try decompressor.decompress(compressed, &read, data[0..], &written);
 
-    try output_file.writer().writeAll(data[0..written]);
+    var output_buffer: [1024]u8 = undefined;
+    var output_file_writer = output_file.writer(&output_buffer);
+    const writer = &output_file_writer.interface;
+    try writer.writeAll(data[0..written]);
 
     std.debug.print("Input: {?s}\nOutput: {?s}\n", .{ input, output });
 }
