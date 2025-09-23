@@ -2,15 +2,7 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-
     const optimize = b.standardOptimizeOption(.{});
-
-    const exe = b.addExecutable(.{
-        .name = "lz4",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
 
     const clap_dep = b.dependency("clap", .{
         .target = target,
@@ -19,11 +11,22 @@ pub fn build(b: *std.Build) void {
 
     const lzig4_module = b.addModule("lzig4", .{
         .root_source_file = b.path("lib/root.zig"),
+        .target = target,
+        .optimize = optimize,
     });
 
-    exe.root_module.addImport("clap", clap_dep.module("clap"));
-    exe.root_module.addImport("lzig4", lzig4_module);
-
+    const exe = b.addExecutable(.{
+        .name = "lz4",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "clap", .module = clap_dep.module("clap") },
+                .{ .name = "lzig4", .module = lzig4_module },
+            },
+        }),
+    });
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
@@ -38,9 +41,7 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("lib/root.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = lzig4_module,
     });
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
